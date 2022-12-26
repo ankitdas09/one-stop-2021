@@ -1,4 +1,57 @@
 const { TravelPostModel, TravelChatModel, ReplyPostModel } = require("../models/campusTravelModel");
+const mongoose = require("mongoose")
+
+var nodemailer = require('nodemailer');
+
+// Create the transporter with the required configuration for Outlook
+// change the user and pass !
+
+const sendEmail = (receiver,rec_name, sender_name, from, to, travelDateTime )=>{
+
+    const time = travelDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });;
+    const date = travelDateTime.toLocaleDateString('en-GB');
+
+    console.log("Date = ", date)
+    console.log("Time = ", time)
+
+    var transporter = nodemailer.createTransport({
+        host: "smtp-mail.outlook.com", // hostname
+        secureConnection: false, // TLS requires secureConnection to be false
+        port: 587, // port for secure SMTP
+        tls: {
+           ciphers:'SSLv3'
+        },
+        auth: {
+            user: '<SWC Email Id>',
+            pass: '<Account password>'
+        }
+    });
+    
+    // setup e-mail data, even with unicode symbols
+    var mailOptions = {
+        from: '"One Stop IITG - SWC " j.pandey@iitg.ac.in', // sender address (who sends)
+        to: receiver, // list of receivers (who receives)
+        subject: 'Reply recieved - Cab Sharing', // Subject line
+        text: 'Hello ', // plaintext body
+        html: '<b>Hello '+rec_name+'</b><br> You got a reply from '+sender_name+' on your upcoming cab sharing request from '+from+' to '+to+'.'+'<div class="style="padding-y:2px""></div>'+'<div>Travel Date: '+date+' </div>'+'<div>Travel Time: '+time+' </div>', // html body
+        text: 'Team SWC', // plaintext body
+    };
+
+    transporter.sendMail(mailOptions, function(error, info){
+        if(error){
+            return console.log(error);
+        }
+    
+        console.log('Message sent: ' + info.response);
+    });
+}
+
+// send mail with defined transport object
+
+
+
+
+
 exports.postTravel = async (req, res) => {
     try {
         let travelDateTime = new Date(req.body.travelDateTime);
@@ -141,12 +194,16 @@ exports.getTravelPostChatReplies = async (req, res) => {
 exports.postReplyChat = async (req, res) => {
     try {
         const id = req.query.chatId;
+        console.log(id);
         const data = req.body;
         let travelChatReply = new ReplyPostModel(data);
         let travelChat = await TravelChatModel.findById(id);
+        const user = await TravelPostModel.findOne({chatId:id});
+        console.log(user);
         travelChat["replies"].push(travelChatReply);
         travelChat = await travelChat.save();
         console.log(travelChat);
+        sendEmail(user.email, user.name, req.body.name, user.from, user.to, user.travelDateTime);
         res.json({ "success": true });
     }
     catch (err) {
